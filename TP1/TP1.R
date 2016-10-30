@@ -3,7 +3,7 @@
 # TP1 - Mardi 25 octobre 2016
 # Chargé de TD : Arnak Dalalyan & Vincent Cottet
 #
-# Etudiants : Biwei Cui & Mehdi Miah
+# Etudiants :  Mehdi Miah & Ulrich MPELI
 # Descriptif : analyse descriptive de algae et modèles prédictifs
 # Remarques : Après nettoyage des données manquantes, prédiction avec une
 #   régressioon linéaire et un arbre de décision
