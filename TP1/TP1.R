@@ -3,7 +3,7 @@
 # TP1 - Mardi 25 octobre 2016
 # Chargé de TD : Arnak Dalalyan & Vincent Cottet
 #
-# Etudiants :  Mehdi Miah & Ulrich MPELI
+# Etudiants : Mehdi Miah & Ulrich Mpeli
 # Descriptif : analyse descriptive de algae et modèles prédictifs
 # Remarques : Après nettoyage des données manquantes, prédiction avec une
 #   régressioon linéaire et un arbre de décision
@@ -91,9 +91,18 @@ nrow(algae3[!complete.cases(algae3), ])
 # données manquantes
 algae = knnImputation(algae, k = 10, meth = "median")
 
+#Logarithme
+algae$mnO2 = log(algae$mnO2)
+algae$Cl = log(algae$Cl)
+algae$NO3 = log(algae$NO3)
+algae$NH4 = log(algae$NH4)
+algae$oPO4 = log(algae$oPO4)
+algae$PO4 = log(algae$PO4)
+algae$Chla = log(algae$Chla)
+
 # == Premier modèle : la régression linéaire multiple ==
 #calcul des coefficients de la régression
-lm.a1 = lm(a1 ~ ., data = algae[, (1:12)[-c(1, 8 ,11)]])
+lm.a1 = lm(a1 ~ ., data = algae[, (1:12)[-c(1)]])
 summary(lm.a1)
 
 #Réponse : str(algae) => il y a 3 variables catégorielles (factor). La commande R crée pour 
