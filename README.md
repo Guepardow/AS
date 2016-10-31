@@ -1,12 +1,5 @@
-#Apprentissage statistique 
+#Apprentissage statistique
 
-## Ensemble des TP
-TP1 : 25 octobre
+## TP1 (25 octobre 2016)
 
-## TP1 (à rendre pour le 30 octobre)
-
-### Nettoyage des données
-
-### Prédictions 
-
-Modèle linéaire et modèle d'arbre de décision
+Résumé : Etude de l'efflorescence algale à partir des données du [package DMwR](https://cran.r-project.org/web/packages/DMwR/index.html). Les modèles utilisées sont basées sur une régression linéaire et un arbre de décision.
