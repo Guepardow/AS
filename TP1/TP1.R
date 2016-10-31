@@ -18,8 +18,11 @@
 rm(list=ls())
 cat("\014")
 
+setwd("C:/Users/Mehdi Miah/Desktop/AS/TP1")
+
 library(DMwR)
 library(rpart) #pour les arbres de décision
+library(stargazer)
 
 # == Analyse descriptive ==================================================
 
@@ -41,15 +44,15 @@ hist(algae$Chla,
      )
 lines(density(log(algae$Chla), na.rm = TRUE), col = 'red')
 rug(jitter(algae$Chla))
-qqnorm(algae$Chla-mean(algae$Chla), 
+qqnorm(algae$Chla, 
        main = "Normal QQ plot of maximum pH")
 abline(a=0, b=1, lty= 2)
 par(op)
 
 # Boxplot conditionelle par rapport à size (catégorielle !)
-bwplot(size ~ a1, data = algae, 
-       ylab = "River size", 
-       xlab = "Algae a1")
+bwplot(season ~ a1, data = algae,
+       ylab = "Season", 
+       xlab  = "Algae a1")
 
 # == Traitement des données manquantes ======================
 
@@ -85,24 +88,44 @@ nrow(algae3[!complete.cases(algae3), ])
 # - d'une variable catégorielle par le mode parmi les 10 observations les plus
 #     proches.
 
+# == Transformation logarithmqiue ==========================
+
+op = par(mfrow=c(1,2))
+hist(algae$NO3, 
+     prob = TRUE,
+     xlab = "",
+     main = "Histogram of NO3",
+     ylim = c(0,0.2)
+)
+lines(density(algae$NO3, na.rm = TRUE), col = 'red')
+hist(log(algae$NO3), 
+     prob = TRUE,
+     xlab = "",
+     main = "Histogram of log(NO3)", 
+     ylim = c(0, 0.5)
+)
+lines(density(log(algae$NO3), na.rm = TRUE), col = 'red')
+par(op)
+
 # == Modèle prédictif ======================================
 
 # Nous utiliserons dans la suite la troisième technique pour gérer les 
 # données manquantes
 algae = knnImputation(algae, k = 10, meth = "median")
 
-#Logarithme
-algae$mnO2 = log(algae$mnO2)
-algae$Cl = log(algae$Cl)
-algae$NO3 = log(algae$NO3)
-algae$NH4 = log(algae$NH4)
-algae$oPO4 = log(algae$oPO4)
-algae$PO4 = log(algae$PO4)
-algae$Chla = log(algae$Chla)
+# Transformation logarithmique pour les concentrations chimiques
+algae$lmnO2 = log(algae$mnO2)
+algae$lCl = log(algae$Cl)
+algae$lNO3 = log(algae$NO3)
+algae$lNH4 = log(algae$NH4)
+algae$loPO4 = log(algae$oPO4)
+algae$lPO4 = log(algae$PO4)
+algae$lChla = log(algae$Chla)
 
 # == Premier modèle : la régression linéaire multiple ==
 #calcul des coefficients de la régression
-lm.a1 = lm(a1 ~ ., data = algae[, (1:12)[-c(1)]])
+lm.a1 = lm(a1 ~ size + speed + mxPH + lmnO2 + lCl + lNH4 + loPO4 + lChla, 
+           data = algae)
 summary(lm.a1)
 
 #Réponse : str(algae) => il y a 3 variables catégorielles (factor). La commande R crée pour 
@@ -112,15 +135,13 @@ summary(lm.a1)
 
 #Réponse : dans une régression linéaire, l'une des métriques les plus utilisées pour 
 # caractériser la qualité d'ajustement est le coefficient R^2.
-# Ici R^2 vaut 0.372.
 # Mais il en existe une autre plus pertinente quand il s'agit de prédiction : le R^2
 # ajusté.
 
 #choisir les paramètres pertinentes
 anova(lm.a1)
 
-#Réponse : les variables inutiles sont season, NH4, Chla ? FAUX !!
-
+#Réponse : les variables inutiles sont season, lPO4, lNO3 
 #sous-modèle
 final.lm = step(lm.a1)
 
