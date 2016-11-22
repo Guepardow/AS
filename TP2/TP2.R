@@ -15,9 +15,16 @@
 rm(list=ls())
 cat("\014")
 
+library(class)
+library(rpart)
+
+library(DMwR)
+library(quantmod)
+# C'est ce package qu'ill faut charger, cf ?candleChart
+
+library(randomForest)
 # == Tests avec knn =========================================================
 
-library(class)
 data(iris)
 head(iris)
 summary(iris)
@@ -83,12 +90,9 @@ plot(vect_res, type = 'l', col = "red",
 # == Test avec stock market returns ===================
 rm(list=ls())
 
-library(DMwR)
 data(GSPC)
 
 # == Indicator =================================
-library(quantmod)
-# C'est ce package qu'ill faut charger, cf ?candleChart
 
 T.ind = function(quotes, tgt.margin = 0.025 , n.days = 10){
   v = apply(HLC(quotes), 1, mean)
@@ -160,27 +164,28 @@ myVolat = function(x) volatility(OHLC(x), calc = "garman")[,1]
 # En général, random forest > arbre de décision
 
 data(GSPC)
-library(randomForest)
 data.model = specifyModel(T.ind(GSPC) ~ Delt(Cl(GSPC),k=1:10) +
                             myATR(GSPC) + mySMI(GSPC) + myADX(GSPC) + myAroon(GSPC) +
                             myBB(GSPC) + myChaikinVol(GSPC) + myCLV(GSPC) +
                             CMO(Cl(GSPC)) + EMA(Delt(Cl(GSPC))) + myEMV(GSPC) +
                             myVolat(GSPC) + myMACD(GSPC) + myMFI(GSPC) + RSI(Cl(GSPC)) +
                             mySAR(GSPC) + runMean(Cl(GSPC)) + runSD(Cl(GSPC)))
-set.seed(1234)
 
+data.model = specifyModel(T.ind(GSPC) ~ Delt(Cl(GSPC),k=1:10) +
+                            myBB(GSPC) + myChaikinVol(GSPC) + myCLV(GSPC) +
+                            CMO(Cl(GSPC)) + EMA(Delt(Cl(GSPC))) + myEMV(GSPC) +
+                            myMFI(GSPC) + RSI(Cl(GSPC)) +
+                            runSD(Cl(GSPC)))
+#volat - macd - aroon - adx - atr - runmean - sar - smi
+set.seed(1234)
 rf = buildModel(data.model, method="randomForest", training.per = c(start(GSPC), index(GSPC["1999-12-31"])),
-                 ntree=50, importance=T)
+                ntree=50, importance=T)
 # Question 2 : 
 
-varImpPlot(rf@fitted.model, type =1)
-# Question 3 : myATR, mySMI, runMean, myVolat
-# runSD, myMACD, mySAR, myADX
-
-data.model_v2 = specifyModel(T.ind(GSPC) ~ myATR(GSPC) + mySMI(GSPC) + myADX(GSPC)+ myVolat(GSPC) +
-                            myMACD(GSPC) + mySAR(GSPC) + runMean(Cl(GSPC)) + runSD(Cl(GSPC)))
+data.model_v2 = specifyModel(T.ind(GSPC) ~ myVolat(GSPC) + myMACD(GSPC) + myAroon(GSPC)+ myADX(GSPC) +
+                               myATR(GSPC) + runMean(Cl(GSPC)) + mySAR(GSPC) + mySMI(GSPC))
 rf_v2 = buildModel(data.model_v2, method="randomForest", training.per = c(start(GSPC), index(GSPC["1999-12-31"])),
-                ntree=50, importance=T)
+                   ntree=50, importance=T)
 varImpPlot(rf_v2@fitted.model, type = 1)
 
 # == Classification au lieu d'une régression ===============================
