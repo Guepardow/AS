@@ -50,7 +50,36 @@ for (k in 1:10){
 class = as.numeric(train[ ,5])
 # display misclassificati on rate s for k=1:10
 apply(cvpred, 2, function(x) sum(class!=x) ) # calcule l’erreur de classif.
-    
+
+# == k optimal pour les iris ===============================================
+
+Niter = 1
+mat_res = matrix(NA, nrow = Niter, ncol = 10)
+
+for(n in 1:Niter){
+  # 5-fold cross-validation to select k from the set {1,...,10}
+  fold = sample(rep(1:5,each=18)) # creation des groupes B_v
+  cvpred = matrix(NA,nrow=90,ncol=10) # initialisation de la matrice des prédicteurs
+  
+  for (k in 1:10){
+    for (v in 1:5){
+      sample1 = train[which(fold!=v),1:4] #train
+      sample2 = train[which(fold==v),1:4] #test
+      class1 = train[which(fold!=v),5]
+      cvpred[which(fold==v),k] = knn(sample1,sample2,class1, k=k)
+    }
+  }
+  
+  class = as.numeric(train[ ,5])
+  # display misclassificati on rate s for k=1:10
+  mat_res[n, ] = apply(cvpred, 2, function(x) sum(class!=x) ) # calcule l’erreur de classif.
+}
+
+vect_res = colMeans(mat_res)
+plot(vect_res, type = 'l', col = "red", 
+     main = "Determination of the optimal k", 
+     xlab = "k", ylab = "number of errors")
+
 # == Test avec stock market returns ===================
 rm(list=ls())
 
@@ -90,10 +119,11 @@ get.current.chob<-function(){quantmod:::get.current.chob()}
 candleChart(last(GSPC, "3 months"), theme = "white", TA = "addAvgPrice(on=1)")
 candleChart(last(GSPC, "3 months"), theme = "white", TA = "addT.ind(on=1) ; addAvgPrice(on=1)")
 
-# Notre fonction qui donne la valeur médiane
+# Function that gives the median of the serie for each day
 medPrice = function(p) apply(HLC(p), 1, median)
 addMedPrice = newTA(FUN = medPrice, col = 1, legend = "MedPrice", lty = 2)
-candleChart(last(GSPC, "3 months"), theme = "white", TA = "addT.ind() ; addAvgPrice(on=1) ; addMedPrice(on=1)")
+candleChart(last(GSPC, "3 months"), theme = "white", 
+TA = "addT.ind();addAvgPrice(on=1) ; addMedPrice(on=1)")
 
 # Dans HLC, la valeur médiane correspond toujours à la valeur de C car : H > C > L ...
 
@@ -132,25 +162,87 @@ myVolat = function(x) volatility(OHLC(x), calc = "garman")[,1]
 data(GSPC)
 library(randomForest)
 data.model = specifyModel(T.ind(GSPC) ~ Delt(Cl(GSPC),k=1:10) +
-                             myATR(GSPC) + mySMI(GSPC) + myADX(GSPC) + myAroon(GSPC) +
-                             myBB(GSPC) + myChaikinVol(GSPC) + myCLV(GSPC) +
-                             CMO(Cl(GSPC)) + EMA(Delt(Cl(GSPC))) + myEMV(GSPC) +
-                             myVolat(GSPC) + myMACD(GSPC) + myMFI(GSPC) + RSI(Cl(GSPC)) +
-                             mySAR(GSPC) + runMean(Cl(GSPC)) + runSD(Cl(GSPC)))
+                            myATR(GSPC) + mySMI(GSPC) + myADX(GSPC) + myAroon(GSPC) +
+                            myBB(GSPC) + myChaikinVol(GSPC) + myCLV(GSPC) +
+                            CMO(Cl(GSPC)) + EMA(Delt(Cl(GSPC))) + myEMV(GSPC) +
+                            myVolat(GSPC) + myMACD(GSPC) + myMFI(GSPC) + RSI(Cl(GSPC)) +
+                            mySAR(GSPC) + runMean(Cl(GSPC)) + runSD(Cl(GSPC)))
 set.seed(1234)
 
-rf = buildModel(data.model, method="randomForest", training.per = c(start(GSPC),index(GSPC["1999-12-31"])),
-                ntree=50, importance=T)
+rf = buildModel(data.model, method="randomForest", training.per = c(start(GSPC), index(GSPC["1999-12-31"])),
+                 ntree=50, importance=T)
 # Question 2 : 
 
 varImpPlot(rf@fitted.model, type =1)
 # Question 3 : myATR, mySMI, runMean, myVolat
 # runSD, myMACD, mySAR, myADX
 
-data.model = specifyModel(T.ind(GSPC) ~ myATR(GSPC) + mySMI(GSPC) + myADX(GSPC)+ myVolat(GSPC) +
+data.model_v2 = specifyModel(T.ind(GSPC) ~ myATR(GSPC) + mySMI(GSPC) + myADX(GSPC)+ myVolat(GSPC) +
                             myMACD(GSPC) + mySAR(GSPC) + runMean(Cl(GSPC)) + runSD(Cl(GSPC)))
+rf_v2 = buildModel(data.model_v2, method="randomForest", training.per = c(start(GSPC), index(GSPC["1999-12-31"])),
+                ntree=50, importance=T)
+varImpPlot(rf_v2@fitted.model, type = 1)
 
-Tdata.train = as.data.frame(modelData(data.model,
+# == Classification au lieu d'une régression ===============================
+
+Tdata.train = as.data.frame(modelData(data.model_v2,
                                       data.window=c("1970-01-02","1999-12-31")))
-Tdata.eval = na.omit(as.data.frame(modelData(data.model,
+Tdata.eval = na.omit(as.data.frame(modelData(data.model_v2,
                                              data.window=c("2000-01-01","2009-09-15"))))
+
+Tdata.train[, 1] = trading.signals(Tdata.train[, 1], 0.1, -0.1)
+names(Tdata.train)[1] = "signal"
+summary(Tdata.train)
+
+# == Méthode des plus proches voisins =========================================
+
+#Choix optimal de k
+Niter = 100
+nb_k = 10
+
+mat_res = matrix(NA, nrow = Niter, ncol = nb_k)
+
+for(n in 1:Niter){
+  # 5-fold cross-validation to select k from the set {1,...,10}
+  fold = sample(c(rep(1:5,each=1508), 1, 2)) #1508*5+2 = 7542 = # observations in train
+  cvpred = matrix(NA,nrow=nrow(Tdata.train),ncol=nb_k) # initialisation de la matrice des prédicteurs
+  
+  for (k in 1:nb_k){
+    for (v in 1:5){
+      sample1 = Tdata.train[which(fold!=v),2:9] #train
+      sample2 = Tdata.train[which(fold==v),2:9] #test in cross-validation
+      class1 = Tdata.train[which(fold!=v),1]
+      cvpred[which(fold==v),k] = knn(sample1,sample2,class1, k=k)
+    }
+  }
+  
+  class = as.numeric(Tdata.train[ ,1]) #true values
+  # display misclassification rates for k=1:10
+  mat_res[n, ] = apply(cvpred, 2, function(x) sum(class!=x) ) # calcule l’erreur de classif.
+}
+
+vect_res = colMeans(mat_res)
+plot(vect_res, type = 'l', col = "red", 
+     main = "Determination of the optimal k", 
+     xlab = "k", ylab = "number of errors")
+
+# Prediction on signal
+pSignal_knn = knn(Tdata.train[,2:ncol(Tdata.train)], Tdata.eval[,2:ncol(Tdata.eval)], Tdata.train[,1], k = 1)            
+table_knn = table(pSignal_knn,trading.signals(Tdata.eval[, 1], 0.1, -0.1))
+
+#calcul du taux d'erreur:
+taux_erreur_knn = 1 - (sum(diag(table_knn))/sum(table_knn))
+taux_erreur_knn
+
+# arbre de décision
+tree_Signal = rpart(formula = signal ~ .,method='class', data = Tdata.train[,1:ncol(Tdata.train)], cp = 0.006)
+prettyTree(tree_Signal, col = "navy", cex = 0.8)
+
+#Prediction on signal eval
+pSignal_dt = predict(tree_Signal, Tdata.eval, "class")
+table_dt = table(pSignal_dt,trading.signals(Tdata.eval[, 1], 0.1, -0.1))
+
+#calcul du taux d'erreur:
+taux_erreur_dt = 1 - (sum(diag(table_dt))/sum(table_dt))
+taux_erreur_dt
+
