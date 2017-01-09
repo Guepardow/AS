@@ -1,0 +1,2 @@
+Ulrich : xgboost + ridge/lasso +  nn + logistic 
+Mehdi : svm + arbre decision + rf + knn + mean + adaboost
