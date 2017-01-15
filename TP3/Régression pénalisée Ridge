@@ -1,0 +1,67 @@
+library(glmnet)
+train = train[,-22]
+valid = valid[, -22]
+
+# le vecteur de prédicteurs x de glmnet doit être numérique => toutes
+# les variables qui sont des facteurs sont remplacées par les indicatrices
+# de leurs modalités (sauf la modalité de référence)
+x <- model.matrix( ~ . -1 ,data=train[,-which(names(train)=="class")])
+y <- train[,"class"]
+
+# validation croisée
+set.seed(235)
+cvfit = cv.glmnet(x,y,alpha=0.001, family = "binomial",type="auc",nlambda=100)
+cvfit$lambda # valeurs de pénalisation
+cvfit$lambda[1] # plus petit lambda annulant tous les coefficients
+# à noter que ce lambda devrait être infini pour alpha = 0 (ridge)
+# et que pour avoir un lambda fini, on remplace alpha = 0 par alpha = 0.001
+cvfit$lambda[99] # lambda précédent divisé par 10000
+cvfit$lambda.min # lambda donnant le plus petit taux d’erreur (cross-validé)
+which(cvfit$lambda==cvfit$lambda.min) # valeur de lambda donnant l'AUC maximale
+# représentation graphique de l'erreur (= AUC) en fonction de la pénalisation
+plot(cvfit)
+abline(h=cvfit$cvm[which(cvfit$lambda==cvfit$lambda.min)],col='blue',lty=2)
+abline(v=log(cvfit$lambda.min),col='blue',lty=2)
+
+# calcul de la régression pour une plage de valeurs de lambda
+fit = glmnet(x,y,alpha=0,family = "binomial",lambda=seq(cvfit$lambda[1],
+                                                        cvfit$lambda[99],length=10000),standardize = T)
+
+# affichage des coefficients
+plot(fit)
+plot(fit,xvar="lambda",label="T")
+
+# prédiction sur une plage de lambda
+# sans précision de "s", toute la séquence de lambda utilisée en apprentissage est reprise
+ypred <- predict(fit,newx=x,type="response")
+length(fit$lambda)
+library(ROCR)
+roc <- function(x) { performance(prediction(ypred[,x],y),"auc")@y.values[[1]] }
+vauc <- Vectorize(roc)(1:length(fit$lambda))
+which.max(vauc) # rang de la pénalisation donnant la plus forte AUC
+fit$lambda[which.max(vauc)] # pénalisation donnant la plus forte AUC
+vauc[which.max(vauc)] # plus forte AUC
+
+# prédiction sur une plage de lambda sur la base de test
+xt <- model.matrix( ~ . -1 ,data=valid[,-which(names(valid)=="class")])
+yt <- valid[,"class"]
+ytpred <- predict(fit,newx=xt,type="response")
+vauc <- Vectorize(roc)(1:length(fit$lambda))
+# affichage de l'AUC
+plot(vauc~log(fit$lambda),col='blue',lty=2,cex=0.5,pch=16)
+#abline(v=log(ridge$lambda[which.max(vauc)]),col='black',lty=2)
+abline(h=vauc[which.max(vauc)],col='black',lty=2)
+vauc[which.max(vauc)] # 0.9999746
+which.max(vauc)
+fit$lambda[which.max(vauc)] # pénalisation donnant la plus forte AUC
+log(fit$lambda[which.max(vauc)]) # log-pénalisation donnant la plus forte AUC
+tail(fit$lambda[which(vauc >= 0.9999746)])
+vauc[which(fit$lambda==1.5)] # 0.9999746
+
+# affichage des coefficients
+plot(fit,xvar="lambda",label="T")
+abline(v=log(1.5),col='black',lty=2)
+
+# coefficients donnant l'AUC maximale en test
+coef(fit,s=fit$lambda[which.max(vauc)])
+coef(fit,s=1.5)
